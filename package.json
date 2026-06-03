@@ -1,0 +1,25 @@
+{
+  "name": "exposure-auditor",
+  "version": "0.1.0",
+  "description": "Consent-based privacy exposure auditor for your own Reddit / Hacker News footprint. Shows what an attacker could infer about you so you can scrub it.",
+  "type": "module",
+  "bin": {
+    "audit": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "audit": "tsx src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
