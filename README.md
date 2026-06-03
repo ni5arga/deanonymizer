@@ -120,8 +120,3 @@ npm run build
 - Recall is upper-bounded by source completeness and truncation constraints
 - Stylometric separability is population- and domain-dependent
 - Confidence calibration depends on evidence density and artifact quality
-
-## Scope and intended use
-
-- In scope: privacy hygiene, self-audit, and educational OSINT analysis
-- Out of scope: non-consensual targeting, harassment workflows, or doxxing
