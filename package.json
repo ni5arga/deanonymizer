@@ -10,6 +10,7 @@
     "build": "tsc",
     "audit": "tsx src/index.ts",
     "start": "tsx src/index.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\""
   },
@@ -17,6 +18,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "commander": "^12.1.0",
+    "openai": "^4.104.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

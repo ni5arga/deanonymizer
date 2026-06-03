@@ -1,11 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type { LLMClient } from "./llm/index.js";
 import type { AuditResult, Finding, Item, Profile } from "./types.js";
-
-// Default to the fast model — per-chunk feature extraction is well-suited to
-// Haiku and it is dramatically lower-latency than Sonnet (the old default),
-// which is what made runs feel "stuck on model response". Override with
-// ANTHROPIC_MODEL=claude-sonnet-4-6 for higher-quality (slower) inference.
-const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
 
 export interface AnalyzeProgress {
   phase: "preparing" | "analyzing" | "reducing" | "done";
@@ -119,13 +113,6 @@ function withTimeout<T>(
   });
 }
 
-function textFromResponse(resp: Anthropic.Messages.Message): string {
-  return resp.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-}
-
 function safeJsonSlice(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const raw = fenced ? fenced[1] : text;
@@ -188,7 +175,7 @@ function emptyChunk(): ParsedChunk {
 }
 
 async function parseChunkOrRepair(
-  client: Anthropic,
+  llm: LLMClient,
   text: string,
 ): Promise<{ parsed: ParsedChunk; repaired: boolean }> {
   const firstTry = safeJsonSlice(text);
@@ -205,12 +192,11 @@ Malformed text:
 ${text.slice(0, 120000)}`;
 
     for (let attempt = 0; attempt < 2; attempt++) {
-      const repairedResp = await client.messages.create({
-        model: MODEL,
-        max_tokens: 4000,
-        messages: [{ role: "user", content: repairPrompt }],
+      const repairedText = await llm.complete({
+        user: repairPrompt,
+        maxTokens: 4000,
+        json: true,
       });
-      const repairedText = textFromResponse(repairedResp);
       const sliced = safeJsonSlice(repairedText);
       try {
         return { parsed: JSON.parse(sliced) as ParsedChunk, repaired: true };
@@ -278,19 +264,14 @@ function chunkItemsByChars(items: Item[], chunkChars: number): Item[][] {
 export async function analyze(
   profiles: Profile[],
   opts: {
+    llm: LLMClient;
     maxChars: number;
     chunkChars?: number;
     chunkConcurrency?: number;
     onProgress?: (p: AnalyzeProgress) => void;
   },
 ): Promise<AuditResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not set. export ANTHROPIC_API_KEY=sk-ant-... and retry.",
-    );
-  }
-  const client = new Anthropic({ apiKey });
+  const llm = opts.llm;
 
   const allItems = profiles.flatMap((p) => p.items);
   const username = profiles[0]?.username ?? "(unknown)";
@@ -384,23 +365,16 @@ ${SCHEMA_HINT}`;
 
     let text = "";
     try {
-      const resp = await withTimeout(
-        client.messages.create({
-          model: MODEL,
-          max_tokens: 2200,
-          system: [
-            {
-              type: "text",
-              text: SYSTEM,
-              cache_control: { type: "ephemeral" },
-            },
-          ],
-          messages: [{ role: "user", content: userMsg }],
+      text = await withTimeout(
+        llm.complete({
+          system: SYSTEM,
+          user: userMsg,
+          maxTokens: 2200,
+          json: true,
         }),
         70000,
         `chunk ${currentChunk}/${totalChunks}`,
       );
-      text = textFromResponse(resp);
     } catch {
       opts.onProgress?.({
         phase: "analyzing",
@@ -427,28 +401,21 @@ ${compressedTranscript}
 
 ${SCHEMA_HINT}`;
 
-      const retryResp = await withTimeout(
-        client.messages.create({
-          model: MODEL,
-          max_tokens: 1100,
-          system: [
-            {
-              type: "text",
-              text: SYSTEM,
-              cache_control: { type: "ephemeral" },
-            },
-          ],
-          messages: [{ role: "user", content: compressedMsg }],
+      text = await withTimeout(
+        llm.complete({
+          system: SYSTEM,
+          user: compressedMsg,
+          maxTokens: 1100,
+          json: true,
         }),
         45000,
         `compressed chunk ${currentChunk}/${totalChunks}`,
       );
-      text = textFromResponse(retryResp);
     } finally {
       clearInterval(heartbeat);
     }
 
-    const { parsed, repaired } = await parseChunkOrRepair(client, text);
+    const { parsed, repaired } = await parseChunkOrRepair(llm, text);
     parsedByIndex[i] = parsed;
     completed += 1;
 

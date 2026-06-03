@@ -60,10 +60,46 @@ containing:
 
 ```bash
 npm install
+```
+
+### LLM backend
+
+The analysis stage runs on either of two interchangeable backends, selected
+automatically from the environment (override with `--provider`):
+
+**Anthropic (native, default when only this key is set)**
+
+```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 # default model is the fast claude-haiku-4-5
 # optional: export ANTHROPIC_MODEL=claude-sonnet-4-6  # slower, higher quality
 ```
+
+**Any OpenAI-compatible endpoint** — OpenAI, Google Gemini, Ollama, Groq,
+Together, etc. Point `OPENAI_BASE_URL` at the provider's Chat Completions
+surface:
+
+```bash
+# OpenAI
+export OPENAI_API_KEY=sk-...
+export OPENAI_MODEL=gpt-4o-mini
+
+# Google Gemini (OpenAI-compatible endpoint)
+export OPENAI_API_KEY=...your-gemini-key...
+export OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export OPENAI_MODEL=gemini-2.0-flash
+
+# Ollama (local, no key required)
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export OPENAI_MODEL=llama3
+```
+
+Selection order: `--provider` flag → `LLM_PROVIDER` env → auto-detect
+(`OPENAI_*` / `--base-url` → openai; `ANTHROPIC_API_KEY` → anthropic). Existing
+Anthropic-only setups keep working unchanged. Native Anthropic prompt caching is
+preserved on the Anthropic path; the OpenAI path requests
+`response_format: json_object` where supported and still runs the JSON-repair
+fallback for endpoints that ignore it.
 
 ## Usage
 
@@ -85,6 +121,12 @@ npm run audit -- my_reddit_handle --require-external-proof
 
 # Faster wall-clock analysis (parallel chunk workers)
 npm run audit -- my_reddit_handle --concurrency 3
+
+# Run against a local Ollama model
+npm run audit -- my_reddit_handle --base-url http://localhost:11434/v1 --model llama3
+
+# Force a specific provider/model for one run
+npm run audit -- my_reddit_handle --provider openai --model gpt-4o-mini
 ```
 
 ## CLI options
@@ -96,6 +138,9 @@ npm run audit -- my_reddit_handle --concurrency 3
 | -n, --max <n> | 300 | Maximum items fetched per platform |
 | --max-chars <n> | 120000 | Maximum analysis transcript budget |
 | --concurrency <n> | all (≤8) | Number of chunk workers processed in parallel |
+| --provider <name> | auto-detect | LLM provider: `anthropic` or `openai` |
+| --base-url <url> | none | OpenAI-compatible base URL (Gemini/Ollama/Groq/…); implies `openai` |
+| --model <name> | provider default | Override the model name |
 | --json | false | Emit JSON instead of text report |
 | --require-external-proof | false | Fail if no proof URL exists beyond audited profile pages |
 | -o, --out <file> | stdout | Write output to file |
@@ -105,7 +150,7 @@ npm run audit -- my_reddit_handle --concurrency 3
 
 - Increase -n to expand retrieval depth
 - Increase --max-chars to reduce context truncation
-- Pin ANTHROPIC_MODEL to control inference backend variance
+- Pin the model (ANTHROPIC_MODEL / OPENAI_MODEL / --model) to control inference backend variance
 - Store JSON outputs for temporal diff and regression analysis
 
 ## Build

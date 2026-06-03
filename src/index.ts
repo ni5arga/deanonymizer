@@ -6,6 +6,7 @@ import { CONSENT_BANNER, requireConsent } from "./consent.js";
 import { fetchReddit } from "./sources/reddit.js";
 import { fetchHN } from "./sources/hn.js";
 import { analyze } from "./analyze.js";
+import { createLLMClient } from "./llm/index.js";
 import { renderJson, renderText } from "./report.js";
 import type { Profile } from "./types.js";
 
@@ -39,6 +40,18 @@ program
   .option(
     "--concurrency <n>",
     "Number of analysis chunks to process in parallel (default: all chunks at once, up to 8)",
+  )
+  .option(
+    "--provider <name>",
+    "LLM provider: 'anthropic' or 'openai' (default: auto-detect from env)",
+  )
+  .option(
+    "--base-url <url>",
+    "OpenAI-compatible base URL (e.g. Gemini, Ollama, Groq); implies --provider openai",
+  )
+  .option(
+    "--model <name>",
+    "Override the model name (else ANTHROPIC_MODEL / OPENAI_MODEL / provider default)",
   )
   .option("--json", "Emit JSON instead of a human report")
   .option(
@@ -84,6 +97,15 @@ program
       ? Math.max(1, Number.parseInt(opts.concurrency, 10) || 1)
       : undefined;
 
+    // Resolve the LLM backend up front so a misconfigured provider fails before
+    // we spend time fetching public history.
+    const llm = createLLMClient({
+      provider: opts.provider,
+      baseUrl: opts.baseUrl,
+      model: opts.model,
+    });
+    process.stderr.write(pc.dim(`Using ${llm.label} model ${llm.model}\n`));
+
     const profiles: Profile[] = [];
 
     if (redditUser) {
@@ -111,6 +133,7 @@ program
 
     process.stderr.write(pc.dim("Analyzing footprint…\n"));
     const result = await analyze(profiles, {
+      llm,
       maxChars,
       chunkConcurrency: concurrency,
       onProgress: (p) => {
