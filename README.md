@@ -94,7 +94,7 @@ npm run audit -- my_reddit_handle --concurrency 3
 | --hn <username> | none | Hacker News user to audit |
 | -n, --max <n> | 300 | Maximum items fetched per platform |
 | --max-chars <n> | 120000 | Maximum analysis transcript budget |
-| --concurrency <n> | 2 | Number of chunk workers processed in parallel |
+| --concurrency <n> | all (≤8) | Number of chunk workers processed in parallel |
 | --json | false | Emit JSON instead of text report |
 | --require-external-proof | false | Fail if no proof URL exists beyond audited profile pages |
 | -o, --out <file> | stdout | Write output to file |

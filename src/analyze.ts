@@ -219,6 +219,32 @@ ${text.slice(0, 120000)}`;
   }
 }
 
+/** Estimate the rendered transcript size of one item (mirrors chunkItemsByChars). */
+function itemRenderSize(it: Item): number {
+  const when = new Date(it.createdUtc * 1000).toISOString().slice(0, 10);
+  const body = it.body.replace(/\s+/g, " ").slice(0, 800);
+  const line = `[${it.platform} ${it.kind} | ${it.context} | ${when}] ${body}\n(${it.permalink})`;
+  return line.length + 2;
+}
+
+/**
+ * Cap items to a total character budget. `--max-chars` is documented as the
+ * total transcript sent to the model; we enforce it here so the analysis does
+ * not silently balloon to many chunks (the dominant cost). Items are
+ * already sorted newest-first, so this keeps the most recent footprint.
+ */
+function capItemsToCharBudget(items: Item[], maxChars: number): Item[] {
+  const out: Item[] = [];
+  let used = 0;
+  for (const it of items) {
+    const size = itemRenderSize(it);
+    if (used + size > maxChars && out.length > 0) break;
+    out.push(it);
+    used += size;
+  }
+  return out;
+}
+
 function chunkItemsByChars(items: Item[], chunkChars: number): Item[][] {
   if (items.length === 0) return [];
   const chunks: Item[][] = [];
@@ -281,14 +307,26 @@ export async function analyze(
     Math.max(opts.chunkChars ?? 24000, 8000),
     opts.maxChars,
   );
-  const chunks = chunkItemsByChars(allItems, chunkChars);
+  const budgetedItems = capItemsToCharBudget(allItems, opts.maxChars);
+  const dropped = allItems.length - budgetedItems.length;
+  if (dropped > 0) {
+    opts.onProgress?.({
+      phase: "preparing",
+      percent: 7,
+      message: `Trimmed ${dropped} oldest item(s) to fit the ${opts.maxChars}-char budget (raise --max-chars to include more)`,
+    });
+  }
+  const chunks = chunkItemsByChars(budgetedItems, chunkChars);
   const parsedByIndex: Array<ParsedChunk | undefined> = new Array(
     chunks.length,
   );
   const totalChunks = chunks.length;
+  // Default to running every chunk concurrently (capped to avoid API rate
+  // limits). Chunk analysis is independent, so serial rounds were the main
+  // source of wall-clock latency.
   const maxConcurrency = Math.max(
     1,
-    Math.min(opts.chunkConcurrency ?? 2, totalChunks || 1),
+    Math.min(opts.chunkConcurrency ?? 8, totalChunks || 1),
   );
   let nextIndex = 0;
   let completed = 0;

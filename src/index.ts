@@ -38,8 +38,7 @@ program
   )
   .option(
     "--concurrency <n>",
-    "Number of analysis chunks to process in parallel",
-    "2",
+    "Number of analysis chunks to process in parallel (default: all chunks at once, up to 8)",
   )
   .option("--json", "Emit JSON instead of a human report")
   .option(
@@ -81,7 +80,9 @@ program
 
     const max = Number.parseInt(opts.max, 10);
     const maxChars = Number.parseInt(opts.maxChars, 10);
-    const concurrency = Math.max(1, Number.parseInt(opts.concurrency, 10) || 2);
+    const concurrency = opts.concurrency
+      ? Math.max(1, Number.parseInt(opts.concurrency, 10) || 1)
+      : undefined;
 
     const profiles: Profile[] = [];
 
