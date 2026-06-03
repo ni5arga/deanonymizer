@@ -271,10 +271,14 @@ export async function analyze(
     maxChars: number;
     chunkChars?: number;
     chunkConcurrency?: number;
+    /** Primary chunk timeout in ms (default 70 000). */
+    timeoutMs?: number;
     onProgress?: (p: AnalyzeProgress) => void;
   },
 ): Promise<AuditResult> {
   const llm = opts.llm;
+  const primaryTimeout = opts.timeoutMs ?? 70000;
+  const compressedTimeout = Math.max(Math.round(primaryTimeout * 0.65), 30000);
 
   const allItems = profiles.flatMap((p) => p.items);
   const username = profiles[0]?.username ?? "(unknown)";
@@ -375,7 +379,7 @@ ${SCHEMA_HINT}`;
           maxTokens: 2200,
           json: true,
         }),
-        70000,
+        primaryTimeout,
         `chunk ${currentChunk}/${totalChunks}`,
       );
     } catch {
@@ -411,7 +415,7 @@ ${SCHEMA_HINT}`;
           maxTokens: 1100,
           json: true,
         }),
-        45000,
+        compressedTimeout,
         `compressed chunk ${currentChunk}/${totalChunks}`,
       );
     } finally {

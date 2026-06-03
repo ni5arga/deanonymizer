@@ -8,12 +8,14 @@ const RISK_COLOR = {
 } as const;
 
 const CONF_BADGE = {
-  high: pc.bgRed(pc.white(" HIGH ")),
-  medium: pc.bgYellow(pc.black(" MED  ")),
+  high: pc.bgRed(pc.white(pc.bold(" HIGH "))),
+  medium: pc.bgYellow(pc.black(pc.bold("  MED "))),
   low: pc.bgBlack(pc.dim(" LOW  ")),
 } as const;
 
 const ORDER = { high: 0, medium: 1, low: 2 } as const;
+
+const BOX_WIDTH = 66;
 
 function date(utc: number): string {
   return new Date(utc * 1000).toISOString().slice(0, 10);
@@ -32,6 +34,34 @@ function banner(title: string, subtitles: string[]): string[] {
   const top = pc.dim("╭" + "─".repeat(width - 2) + "╮");
   const bottom = pc.dim("╰" + "─".repeat(width - 2) + "╯");
   return [top, "  " + title, ...subtitles.map((s) => "  " + s), bottom];
+}
+
+/** Wrap content lines in a colored box with the severity badge in the top border. */
+function findingBox(
+  f: Finding,
+  index: number,
+  contentLines: string[],
+): string[] {
+  const color = RISK_COLOR[f.confidence];
+  const badge = CONF_BADGE[f.confidence];
+  const w = BOX_WIDTH;
+
+  // Top border with badge embedded
+  const badgeText = f.confidence.toUpperCase();
+  const topAfterBadge = w - 4 - badgeText.length - 1;
+  const top =
+    color("┌─ ") +
+    badge +
+    " " +
+    color("─".repeat(Math.max(topAfterBadge, 0)) + "┐");
+
+  const bottom = color("└" + "─".repeat(w - 2) + "┘");
+
+  const boxed = contentLines.map((line) => {
+    return color("│") + " " + line;
+  });
+
+  return [top, ...boxed, bottom];
 }
 
 export function renderText(r: AuditResult): string {
@@ -88,16 +118,19 @@ export function renderText(r: AuditResult): string {
   );
 
   sorted.forEach((f: Finding, i) => {
-    out.push(
-      `${CONF_BADGE[f.confidence]} ${pc.dim(`#${i + 1}`)} ` +
-        `${pc.cyan(f.category)} — ${pc.bold(f.claim)}`,
+    const lines: string[] = [];
+
+    lines.push(
+      `${pc.dim(`#${i + 1}`)} ${pc.cyan(f.category)} — ${pc.bold(f.claim)}`,
     );
-    out.push(`     ${pc.dim("why")}  ${f.rationale}`);
+    lines.push(`   ${pc.dim("why")}  ${f.rationale}`);
     for (const e of f.evidence ?? []) {
-      out.push(`     ${pc.dim("┊")} "${e.quote}"`);
-      out.push(`       ${pc.blue(pc.underline(e.permalink))}`);
+      lines.push(`   ${pc.dim("┊")} "${e.quote}"`);
+      lines.push(`     ${pc.blue(pc.underline(e.permalink))}`);
     }
-    out.push(`     ${pc.green("fix")}  ${f.remediation}`);
+    lines.push(`   ${pc.green("fix")}  ${f.remediation}`);
+
+    out.push(...findingBox(f, i, lines));
     out.push("");
   });
 

@@ -1,6 +1,15 @@
 /** Provider-agnostic LLM abstraction used by the analysis stage. */
 
-export type Provider = "anthropic" | "openai";
+export type Provider =
+  | "anthropic"
+  | "openai"
+  | "openrouter"
+  | "gemini"
+  | "ollama"
+  | "groq"
+  | "together"
+  | "nvidia"
+  | "mistral";
 
 /** A single completion request, normalized across providers. */
 export interface LLMCompleteParams {

@@ -32,8 +32,23 @@ describe("resolveProvider", () => {
     );
   });
 
+  it("accepts all supported provider names", () => {
+    const providers = [
+      "openrouter",
+      "gemini",
+      "ollama",
+      "groq",
+      "together",
+      "nvidia",
+      "mistral",
+    ];
+    for (const p of providers) {
+      assert.equal(resolveProvider({ provider: p }, {}), p);
+    }
+  });
+
   it("throws on an unknown provider name", () => {
-    assert.throws(() => resolveProvider({ provider: "gemini" }, {}), /Unknown/);
+    assert.throws(() => resolveProvider({ provider: "foobar" }, {}), /Unknown/);
   });
 
   it("throws when nothing is configured", () => {
@@ -63,6 +78,32 @@ describe("createLLMClient", () => {
     );
     assert.equal(client.model, "llama3");
     assert.match(client.label, /openai \(base: http:\/\/localhost:11434\/v1\)/);
+  });
+
+  it("uses provider preset base URL for openrouter", () => {
+    const client = createLLMClient(
+      { provider: "openrouter" },
+      { OPENAI_API_KEY: "sk-or" },
+    );
+    assert.match(client.label, /openrouter\.ai/);
+    assert.equal(client.model, "google/gemini-2.0-flash-exp:free");
+  });
+
+  it("uses provider preset base URL for nvidia", () => {
+    const client = createLLMClient(
+      { provider: "nvidia" },
+      { OPENAI_API_KEY: "nvapi-..." },
+    );
+    assert.match(client.label, /nvidia/);
+    assert.equal(client.model, "meta/llama-3.3-70b-instruct");
+  });
+
+  it("allows model override even with a provider preset", () => {
+    const client = createLLMClient(
+      { provider: "groq", model: "custom-model" },
+      { OPENAI_API_KEY: "gsk-..." },
+    );
+    assert.equal(client.model, "custom-model");
   });
 
   it("throws when openai is selected without key or base url", () => {

@@ -22,11 +22,12 @@ function stub(
   return { lastRequest: () => lastRequest };
 }
 
-function makeClient(): OpenAIClient {
+function makeClient(fallbackModels?: string[]): OpenAIClient {
   return new OpenAIClient({
     apiKey: "test-key",
     baseUrl: "http://localhost:11434/v1",
     model: "llama3",
+    fallbackModels,
   });
 }
 
@@ -97,7 +98,41 @@ describe("OpenAIClient.complete", () => {
     const client = makeClient();
     stub(client, async () => ({ choices: [] }));
     await assert.rejects(client.complete({ user: "go", maxTokens: 5 }), {
-      message: /returned no content/,
+      message: /returned no choices/,
     });
+  });
+
+  it("throws when choices is undefined (e.g. OpenRouter error payload)", async () => {
+    const client = makeClient();
+    stub(client, async () => ({
+      error: { message: "The operation was aborted", code: 504 },
+    }));
+    await assert.rejects(client.complete({ user: "go", maxTokens: 5 }), {
+      message: /returned no choices or an error payload/,
+    });
+  });
+
+  it("falls back to next model on retryable error", async () => {
+    const client = makeClient(["fallback-model"]);
+    let callCount = 0;
+    stub(client, async (req) => {
+      callCount++;
+      const r = req as { model: string };
+      if (r.model === "llama3") {
+        const err = new Error("rate limit exceeded") as Error & {
+          status: number;
+        };
+        err.status = 429;
+        throw err;
+      }
+      return {
+        choices: [
+          { message: { content: "from-fallback" }, finish_reason: "stop" },
+        ],
+      };
+    });
+    const result = await client.complete({ user: "go", maxTokens: 5 });
+    assert.equal(result, "from-fallback");
+    assert.equal(callCount, 2);
   });
 });

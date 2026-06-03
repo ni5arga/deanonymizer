@@ -43,7 +43,7 @@ program
   )
   .option(
     "--provider <name>",
-    "LLM provider: 'anthropic' or 'openai' (default: auto-detect from env)",
+    "LLM provider: anthropic, openai, openrouter, gemini, ollama, groq, together, nvidia, mistral (default: auto-detect)",
   )
   .option(
     "--base-url <url>",
@@ -59,6 +59,10 @@ program
     "Fail if no public proof URL exists beyond the audited platform profile pages",
   )
   .option("-o, --out <file>", "Write the report to a file")
+  .option(
+    "--timeout <ms>",
+    "LLM request timeout in milliseconds (default: 70000)",
+  )
   .option(
     "--i-am-authorized",
     "Skip the interactive consent prompt (asserts you own/are authorized for the target)",
@@ -95,6 +99,9 @@ program
     const maxChars = Number.parseInt(opts.maxChars, 10);
     const concurrency = opts.concurrency
       ? Math.max(1, Number.parseInt(opts.concurrency, 10) || 1)
+      : undefined;
+    const timeoutMs = opts.timeout
+      ? Math.max(10000, Number.parseInt(opts.timeout, 10) || 70000)
       : undefined;
 
     // Resolve the LLM backend up front so a misconfigured provider fails before
@@ -136,6 +143,7 @@ program
       llm,
       maxChars,
       chunkConcurrency: concurrency,
+      timeoutMs,
       onProgress: (p) => {
         const chunkLabel =
           p.currentChunk && p.totalChunks
