@@ -61,7 +61,8 @@ containing:
 ```bash
 npm install
 export ANTHROPIC_API_KEY=sk-ant-...
-# optional: export ANTHROPIC_MODEL=claude-sonnet-4-6
+# default model is the fast claude-haiku-4-5
+# optional: export ANTHROPIC_MODEL=claude-sonnet-4-6  # slower, higher quality
 ```
 
 ## Usage

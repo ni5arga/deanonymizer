@@ -1,7 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AuditResult, Finding, Item, Profile } from "./types.js";
 
-const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+// Default to the fast model — per-chunk feature extraction is well-suited to
+// Haiku and it is dramatically lower-latency than Sonnet (the old default),
+// which is what made runs feel "stuck on model response". Override with
+// ANTHROPIC_MODEL=claude-sonnet-4-6 for higher-quality (slower) inference.
+const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
 
 export interface AnalyzeProgress {
   phase: "preparing" | "analyzing" | "reducing" | "done";
