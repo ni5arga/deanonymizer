@@ -192,16 +192,19 @@ Malformed text:
 ${text.slice(0, 120000)}`;
 
     for (let attempt = 0; attempt < 2; attempt++) {
-      const repairedText = await llm.complete({
-        user: repairPrompt,
-        maxTokens: 4000,
-        json: true,
-      });
-      const sliced = safeJsonSlice(repairedText);
       try {
+        const repairedText = await llm.complete({
+          user: repairPrompt,
+          maxTokens: 4000,
+          json: true,
+        });
+        const sliced = safeJsonSlice(repairedText);
         return { parsed: JSON.parse(sliced) as ParsedChunk, repaired: true };
       } catch {
-        // Retry once more; if still invalid we return an empty chunk below.
+        // The completion errored (e.g. an endpoint returned empty content) or
+        // the response was still invalid JSON. Retry once more; if it never
+        // succeeds we degrade to an empty chunk below rather than aborting the
+        // whole run.
       }
     }
 
