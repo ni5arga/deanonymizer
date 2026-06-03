@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "commander": "^12.1.0",
+    "openai": "^4.73.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

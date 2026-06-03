@@ -60,9 +60,17 @@ containing:
 
 ```bash
 npm install
+
+# Anthropic (default)
 export ANTHROPIC_API_KEY=sk-ant-...
-# default model is the fast claude-haiku-4-5
+# default model is claude-haiku-4-5
 # optional: export ANTHROPIC_MODEL=claude-sonnet-4-6  # slower, higher quality
+
+# OpenAI
+export LLM_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
+# default model is gpt-4o-mini
+# optional: export OPENAI_MODEL=gpt-4o
 ```
 
 ## Usage
@@ -105,7 +113,7 @@ npm run audit -- my_reddit_handle --concurrency 3
 
 - Increase -n to expand retrieval depth
 - Increase --max-chars to reduce context truncation
-- Pin ANTHROPIC_MODEL to control inference backend variance
+- Pin ANTHROPIC_MODEL (or OPENAI_MODEL when LLM_PROVIDER=openai) to control inference backend variance
 - Store JSON outputs for temporal diff and regression analysis
 
 ## Build
