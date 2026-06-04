@@ -1,5 +1,6 @@
 import type { Item, Profile } from "../types.js";
-import { fetchAndExtractSite, normalizeUrl } from "./web.js";
+import { USER_AGENT, assembleProfile } from "./common.js";
+import { followProfileWebsite } from "./web.js";
 
 /**
  * GitHub ingestion via the public REST API. No auth required for low-volume
@@ -46,7 +47,7 @@ async function ghFetch<T>(path: string, token?: string): Promise<T | null> {
   const res = await fetch(`${BASE}${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "deanonymizer/0.1 (privacy self-audit)",
+      "User-Agent": USER_AGENT,
       "X-GitHub-Api-Version": "2022-11-28",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
@@ -207,34 +208,20 @@ export async function fetchGitHub(
   for (const e of events) items.push(...eventToItems(e));
 
   // Best-effort shallow follow of the profile's declared website (one hop).
-  // This is the single most useful signal beyond the API — personal sites,
-  // resumes, and portfolios usually expose the real name.
-  if (profile?.blog) {
-    const url = normalizeUrl(profile.blog);
-    if (url) {
-      const text = await fetchAndExtractSite(url);
-      if (text && text.length > 80) {
-        items.push({
-          platform: "github",
-          id: `${user}-blog`,
-          kind: "post",
-          context: "external site + sub-pages (linked from github profile)",
-          body: text.slice(0, 24000),
-          createdUtc: Math.floor(Date.now() / 1000),
-          permalink: url,
-        });
-      }
-    }
-  }
-
-  items.sort((a, b) => b.createdUtc - a.createdUtc);
-
-  return {
+  const website = await followProfileWebsite({
     platform: "github",
-    username: user,
-    profileUrl: `https://github.com/${encodeURIComponent(user)}`,
+    rawUrl: profile?.blog,
+    id: `${user}-blog`,
+    createdUtc: Math.floor(Date.now() / 1000),
+  });
+  if (website) items.push(website);
+
+  return assembleProfile(
+    {
+      platform: "github",
+      username: user,
+      profileUrl: `https://github.com/${encodeURIComponent(user)}`,
+    },
     items,
-    firstUtc: items.length ? items[items.length - 1].createdUtc : undefined,
-    lastUtc: items.length ? items[0].createdUtc : undefined,
-  };
+  );
 }

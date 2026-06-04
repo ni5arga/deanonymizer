@@ -10,10 +10,13 @@
  * out of scope.
  */
 
+import type { Item, Platform } from "../types.js";
+import { MAX_SITE_BODY } from "./common.js";
+
 const MAX_BYTES = 2_000_000;
 const TIMEOUT_MS = 10_000;
 const MAX_EXTRA_PAGES = 5;
-const MAX_TOTAL_TEXT = 24_000;
+const MAX_TOTAL_TEXT = MAX_SITE_BODY;
 const UA = "deanonymizer/0.1 (privacy self-audit; link-follower)";
 
 const IDENTITY_PATH_RE =
@@ -122,7 +125,11 @@ function sameOriginLinks(html: string, baseUrl: string): string[] {
       const u = new URL(m[1], baseUrl);
       if (u.origin !== base.origin) continue;
       if (u.pathname === base.pathname) continue;
-      if (/\.(png|jpe?g|gif|webp|svg|ico|css|js|pdf|zip|mp4|mp3)$/i.test(u.pathname))
+      if (
+        /\.(png|jpe?g|gif|webp|svg|ico|css|js|pdf|zip|mp4|mp3)$/i.test(
+          u.pathname,
+        )
+      )
         continue;
       u.hash = "";
       out.add(u.toString());
@@ -148,9 +155,7 @@ export async function fetchAndExtractText(url: string): Promise<string | null> {
  * /contact, …). Returns the concatenated text, or null if nothing useful
  * was reachable.
  */
-export async function fetchAndExtractSite(
-  url: string,
-): Promise<string | null> {
+export async function fetchAndExtractSite(url: string): Promise<string | null> {
   const root = await fetchRaw(url);
   if (!root) return null;
 
@@ -176,4 +181,36 @@ export async function fetchAndExtractSite(
   }
 
   return parts.join("\n\n");
+}
+
+/**
+ * Shared one-hop follow of a platform profile's declared website. GitHub
+ * (`blog`) and Stack Overflow (`website_url`) both expose a free-text URL that
+ * is the single most useful identity signal beyond their APIs — personal
+ * sites, resumes, and portfolios usually expose the real name. Returns a
+ * ready-to-push Item, or null when the field is empty, unparseable, or yields
+ * too little text to be worth including.
+ */
+export async function followProfileWebsite(opts: {
+  platform: Platform;
+  rawUrl: string | null | undefined;
+  id: string;
+  createdUtc: number;
+}): Promise<Item | null> {
+  if (!opts.rawUrl) return null;
+  const url = normalizeUrl(opts.rawUrl);
+  if (!url) return null;
+
+  const text = await fetchAndExtractSite(url);
+  if (!text || text.length <= 80) return null;
+
+  return {
+    platform: opts.platform,
+    id: opts.id,
+    kind: "post",
+    context: `external site + sub-pages (linked from ${opts.platform} profile)`,
+    body: text.slice(0, MAX_SITE_BODY),
+    createdUtc: opts.createdUtc,
+    permalink: url,
+  };
 }

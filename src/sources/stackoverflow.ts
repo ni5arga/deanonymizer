@@ -1,5 +1,6 @@
 import type { Item, Profile } from "../types.js";
-import { fetchAndExtractSite, normalizeUrl } from "./web.js";
+import { USER_AGENT, assembleProfile, decodeEntities } from "./common.js";
+import { followProfileWebsite } from "./web.js";
 
 /**
  * Stack Overflow ingestion via the Stack Exchange API v2.3. No auth required
@@ -65,16 +66,12 @@ function parseUserId(input: string): number {
 }
 
 function stripHtml(s: string): string {
-  return s
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&#x2F;/g, "/")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&gt;/g, ">")
-    .replace(/&lt;/g, "<")
-    .replace(/&amp;/g, "&")
+  return decodeEntities(
+    s
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, ""),
+  )
     .replace(/\s+\n/g, "\n")
     .trim();
 }
@@ -87,10 +84,12 @@ async function seFetch<T>(
   url.searchParams.set("site", SITE);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await fetch(url, {
-    headers: { "User-Agent": "deanonymizer/0.1 (privacy self-audit)" },
+    headers: { "User-Agent": USER_AGENT },
   });
   if (!res.ok) {
-    throw new Error(`Stack Exchange ${path} ${res.status}: ${await res.text()}`);
+    throw new Error(
+      `Stack Exchange ${path} ${res.status}: ${await res.text()}`,
+    );
   }
   return (await res.json()) as SEResp<T>;
 }
@@ -155,23 +154,13 @@ export async function fetchStackOverflow(
   }
 
   // Shallow follow of the profile's declared website (one hop).
-  if (user.website_url) {
-    const url = normalizeUrl(user.website_url);
-    if (url) {
-      const text = await fetchAndExtractSite(url);
-      if (text && text.length > 80) {
-        items.push({
-          platform: "stackoverflow",
-          id: `${userId}-website`,
-          kind: "post",
-          context: "external site + sub-pages (linked from stackoverflow profile)",
-          body: text.slice(0, 24000),
-          createdUtc: user.creation_date,
-          permalink: url,
-        });
-      }
-    }
-  }
+  const website = await followProfileWebsite({
+    platform: "stackoverflow",
+    rawUrl: user.website_url,
+    id: `${userId}-website`,
+    createdUtc: user.creation_date,
+  });
+  if (website) items.push(website);
 
   const [answers, questions, comments] = await Promise.all([
     fetchPaged<SEAnswer>(`/users/${userId}/answers`, max),
@@ -199,7 +188,9 @@ export async function fetchStackOverflow(
       kind: "post",
       context: `question${q.tags?.length ? ` (${q.tags.join(", ")})` : ""}`,
       title: q.title,
-      body: [q.title, q.body ? stripHtml(q.body) : ""].filter(Boolean).join("\n"),
+      body: [q.title, q.body ? stripHtml(q.body) : ""]
+        .filter(Boolean)
+        .join("\n"),
       createdUtc: q.creation_date,
       permalink: q.link,
     });
@@ -218,14 +209,12 @@ export async function fetchStackOverflow(
     });
   }
 
-  items.sort((a, b) => b.createdUtc - a.createdUtc);
-
-  return {
-    platform: "stackoverflow",
-    username: user.display_name,
-    profileUrl: user.link,
+  return assembleProfile(
+    {
+      platform: "stackoverflow",
+      username: user.display_name,
+      profileUrl: user.link,
+    },
     items,
-    firstUtc: items.length ? items[items.length - 1].createdUtc : undefined,
-    lastUtc: items.length ? items[0].createdUtc : undefined,
-  };
+  );
 }

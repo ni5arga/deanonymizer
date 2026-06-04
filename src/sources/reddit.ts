@@ -1,4 +1,5 @@
 import type { Item, Profile } from "../types.js";
+import { USER_AGENT, assembleProfile } from "./common.js";
 
 /**
  * Reddit ingestion via the Arctic Shift API
@@ -41,7 +42,7 @@ async function fetchPage<T>(
   if (before) url.searchParams.set("before", String(before));
 
   const res = await fetch(url, {
-    headers: { "User-Agent": "deanonymizer/0.1 (privacy self-audit)" },
+    headers: { "User-Agent": USER_AGENT },
   });
   if (res.status === 404) return [];
   if (!res.ok) {
@@ -114,14 +115,12 @@ export async function fetchReddit(
     });
   }
 
-  items.sort((a, b) => b.createdUtc - a.createdUtc);
-
-  return {
-    platform: "reddit",
-    username: user,
-    profileUrl: `https://www.reddit.com/user/${encodeURIComponent(user)}`,
+  return assembleProfile(
+    {
+      platform: "reddit",
+      username: user,
+      profileUrl: `https://www.reddit.com/user/${encodeURIComponent(user)}`,
+    },
     items,
-    firstUtc: items.length ? items[items.length - 1].createdUtc : undefined,
-    lastUtc: items.length ? items[0].createdUtc : undefined,
-  };
+  );
 }
