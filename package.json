@@ -9,7 +9,9 @@
   "scripts": {
     "build": "tsc",
     "audit": "tsx src/index.ts",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
   },
   "license": "MIT",
   "dependencies": {
@@ -19,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "prettier": "^3.8.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
