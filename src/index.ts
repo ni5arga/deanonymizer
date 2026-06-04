@@ -148,7 +148,9 @@ program
     }
 
     if (soUser) {
-      process.stderr.write(pc.dim(`Fetching Stack Overflow history for ${soUser}… `));
+      process.stderr.write(
+        pc.dim(`Fetching Stack Overflow history for ${soUser}… `),
+      );
       const p = await fetchStackOverflow(soUser, max);
       process.stderr.write(pc.dim(`${p.items.length} items\n`));
       if (p.items.length) profiles.push(p);

@@ -21,8 +21,7 @@ const SOCIAL_PATTERNS: Array<{
 }> = [
   {
     platform: "linkedin",
-    pattern:
-      /https?:\/\/(?:[\w-]+\.)?linkedin\.com\/in\/([A-Za-z0-9_-]+)/gi,
+    pattern: /https?:\/\/(?:[\w-]+\.)?linkedin\.com\/in\/([A-Za-z0-9_-]+)/gi,
   },
   {
     platform: "x",
@@ -51,8 +50,7 @@ const SOCIAL_PATTERNS: Array<{
   },
   {
     platform: "bluesky",
-    pattern:
-      /https?:\/\/(?:www\.)?bsky\.app\/profile\/([A-Za-z0-9_.:-]+)/gi,
+    pattern: /https?:\/\/(?:www\.)?bsky\.app\/profile\/([A-Za-z0-9_.:-]+)/gi,
   },
   {
     platform: "reddit",
@@ -72,8 +70,7 @@ const SOCIAL_PATTERNS: Array<{
     platform: "gitlab",
     pattern:
       /https?:\/\/(?:www\.)?gitlab\.com\/([A-Za-z0-9][A-Za-z0-9_-]+)(?=\b|\/|$)/gi,
-    reject:
-      /^(explore|help|users|projects|search|public|dashboard|admin)$/i,
+    reject: /^(explore|help|users|projects|search|public|dashboard|admin)$/i,
   },
   {
     platform: "stackoverflow",

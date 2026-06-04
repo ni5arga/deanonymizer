@@ -29,9 +29,7 @@ function sectionHead(label: string): string {
 
 function riskMeter(risk: AuditResult["overallRisk"]): string {
   const filled = { low: 3, medium: 6, high: 10 }[risk];
-  return (
-    RISK_COLOR[risk]("█".repeat(filled)) + pc.dim("·".repeat(10 - filled))
-  );
+  return RISK_COLOR[risk]("█".repeat(filled)) + pc.dim("·".repeat(10 - filled));
 }
 
 function wrapBlock(text: string, indent: string, width = 70): string {
@@ -60,12 +58,18 @@ function findingBlock(f: Finding, n: number): string[] {
   );
   out.push(wrapBlock(pc.bold(f.claim), "        "));
   out.push("");
-  out.push(`        ${pc.dim("why")}  ${wrapBlock(f.rationale, "             ").trimStart()}`);
+  out.push(
+    `        ${pc.dim("why")}  ${wrapBlock(f.rationale, "             ").trimStart()}`,
+  );
   for (const e of f.evidence ?? []) {
-    out.push(`        ${pc.dim("┊")}    ${pc.italic(`"${e.quote.replace(/\s+/g, " ").slice(0, 240)}"`)}`);
+    out.push(
+      `        ${pc.dim("┊")}    ${pc.italic(`"${e.quote.replace(/\s+/g, " ").slice(0, 240)}"`)}`,
+    );
     out.push(`             ${pc.blue(pc.underline(e.permalink))}`);
   }
-  out.push(`        ${pc.green("fix")}  ${wrapBlock(f.remediation, "             ").trimStart()}`);
+  out.push(
+    `        ${pc.green("fix")}  ${wrapBlock(f.remediation, "             ").trimStart()}`,
+  );
   out.push("");
   return out;
 }
@@ -154,7 +158,9 @@ export function renderText(r: AuditResult): string {
 
   if (r.findings.length === 0) {
     out.push(rule());
-    out.push(pc.green("  ✓ No identifying signals found in the analyzed window."));
+    out.push(
+      pc.green("  ✓ No identifying signals found in the analyzed window."),
+    );
     return out.join("\n");
   }
 

@@ -412,9 +412,7 @@ ${SCHEMA_HINT}`;
           maxTokens: 1100,
           json: true,
         }),
-        llm.requestTimeoutMs
-          ? Math.round(llm.requestTimeoutMs * 0.6)
-          : 45000,
+        llm.requestTimeoutMs ? Math.round(llm.requestTimeoutMs * 0.6) : 45000,
         `compressed chunk ${currentChunk}/${totalChunks}`,
       );
     } finally {
@@ -522,8 +520,7 @@ ${SCHEMA_HINT}`;
     platformProfiles.map((p) => `${p.platform}:${p.username.toLowerCase()}`),
   );
   const filteredHandles = handleList.filter((h) => {
-    const aliasPlatform =
-      h.platform === "hackernews" ? "hn" : h.platform; // map naming difference
+    const aliasPlatform = h.platform === "hackernews" ? "hn" : h.platform; // map naming difference
     return !auditedHandles.has(`${aliasPlatform}:${h.handle.toLowerCase()}`);
   });
   const directIdentifiers =
