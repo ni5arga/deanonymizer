@@ -47,8 +47,8 @@ function findingBox(
   const w = BOX_WIDTH;
 
   // Top border with badge embedded
-  const badgeText = f.confidence.toUpperCase();
-  const topAfterBadge = w - 4 - badgeText.length - 1;
+  const badgePlain = { high: " HIGH ", medium: "  MED ", low: " LOW  " }[f.confidence];
+  const topAfterBadge = w - 5 - badgePlain.length;
   const top =
     color("┌─ ") +
     badge +
