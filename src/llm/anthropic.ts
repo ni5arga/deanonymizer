@@ -45,10 +45,10 @@ export class AnthropicClient implements LLMClient {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`anthropic request failed: ${msg}`);
+      throw new Error(`${this.label} request failed: ${msg}`);
     }
     const text = textFromResponse(resp);
-    if (!text) throw new Error(`anthropic returned no content`);
+    if (!text) throw new Error(`${this.label} returned no content`);
     return text;
   }
 }
