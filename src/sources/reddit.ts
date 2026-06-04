@@ -41,7 +41,7 @@ async function fetchPage<T>(
   if (before) url.searchParams.set("before", String(before));
 
   const res = await fetch(url, {
-    headers: { "User-Agent": "exposure-auditor/0.1 (privacy self-audit)" },
+    headers: { "User-Agent": "deanonymizer/0.1 (privacy self-audit)" },
   });
   if (res.status === 404) return [];
   if (!res.ok) {

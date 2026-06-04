@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("audit")
   .description(
-    "Consent-based privacy exposure auditor. Pull your own Reddit / Hacker News\n" +
+    "deanonymizer — consent-based privacy exposure auditor. Pull your own Reddit / Hacker News\n" +
       "history and report what an attacker could infer, so you can scrub it.\n" +
       "Defensive mirror of the deanonymization attack in arXiv:2602.16800.",
   )

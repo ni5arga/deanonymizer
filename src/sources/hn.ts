@@ -48,7 +48,7 @@ async function fetchTag(
       url.searchParams.set("numericFilters", `created_at_i<${before}`);
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "exposure-auditor/0.1 (privacy self-audit)" },
+      headers: { "User-Agent": "deanonymizer/0.1 (privacy self-audit)" },
     });
     if (!res.ok) throw new Error(`HN Algolia ${tag} ${res.status}`);
     const json = (await res.json()) as { hits?: Hit[] };

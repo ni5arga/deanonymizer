@@ -1,7 +1,7 @@
 {
-  "name": "exposure-auditor",
+  "name": "deanonymizer",
   "version": "0.1.0",
-  "description": "Consent-based privacy exposure auditor for your own Reddit / Hacker News footprint. Shows what an attacker could infer about you so you can scrub it.",
+  "description": "deanonymizer — consent-based privacy exposure auditor for your own Reddit / Hacker News footprint. Shows what an attacker could infer about you so you can scrub it.",
   "type": "module",
   "bin": {
     "audit": "./dist/index.js"

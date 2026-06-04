@@ -14,7 +14,7 @@ import pc from "picocolors";
  */
 
 export const CONSENT_BANNER = `
-${pc.bold("Privacy Exposure Auditor")} — authorization check
+${pc.bold("deanonymizer")} — authorization check
 
 Run only on accounts you own or are explicitly authorized to assess.
 Unauthorized identity targeting is out of scope.
