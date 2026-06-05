@@ -213,7 +213,7 @@ ${text.slice(0, 120000)}`;
   }
 }
 
-/** Estimate the rendered transcript size of one item (mirrors chunkItemsByChars). */
+/** Estimate the rendered transcript size of one item (used for chunking + budgeting). */
 function itemRenderSize(it: Item): number {
   const when = new Date(it.createdUtc * 1000).toISOString().slice(0, 10);
   const body = it.body.replace(/\s+/g, " ").slice(0, 800);
@@ -246,10 +246,7 @@ function chunkItemsByChars(items: Item[], chunkChars: number): Item[][] {
   let used = 0;
 
   for (const it of items) {
-    const when = new Date(it.createdUtc * 1000).toISOString().slice(0, 10);
-    const body = it.body.replace(/\s+/g, " ").slice(0, 800);
-    const line = `[${it.platform} ${it.kind} | ${it.context} | ${when}] ${body}\n(${it.permalink})`;
-    const size = line.length + 2;
+    const size = itemRenderSize(it);
 
     if (current.length > 0 && used + size > chunkChars) {
       chunks.push(current);

@@ -11,7 +11,7 @@
  */
 
 import type { Item, Platform } from "../types.js";
-import { MAX_SITE_BODY } from "./common.js";
+import { MAX_SITE_BODY, decodeEntities } from "./common.js";
 
 const MAX_BYTES = 2_000_000;
 const TIMEOUT_MS = 10_000;
@@ -45,20 +45,16 @@ function extractText(html: string): string {
     }
   }
 
-  const stripped = html
+  const withoutTags = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
     .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<br\s*\/?>(?!\n)/gi, "\n")
     .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/<[^>]+>/g, " ");
+
+  const stripped = decodeEntities(withoutTags)
     .replace(/[ \t]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -138,15 +134,6 @@ function sameOriginLinks(html: string, baseUrl: string): string[] {
     }
   }
   return [...out];
-}
-
-/**
- * Single-page fetcher kept for backwards compatibility / callers that don't
- * want the multi-page walk.
- */
-export async function fetchAndExtractText(url: string): Promise<string | null> {
-  const raw = await fetchRaw(url);
-  return raw?.text ?? null;
 }
 
 /**
