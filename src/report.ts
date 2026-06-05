@@ -95,7 +95,6 @@ function findingBox(
   const badge = CONF_BADGE[f.confidence];
   const w = getBoxWidth();
 
-
   // Top border: ┌─ [badge] ─── ┐
   const dashes = Math.max(0, w - 10);
   const top = color("┌─ ") + badge + color("─".repeat(dashes) + "┐");
@@ -145,7 +144,7 @@ export function renderText(r: AuditResult): string {
   out.push("");
 
   out.push(`  ${pc.bold("Exact user")}  ${r.identity.exactUser}`);
-  
+
   const rationaleLines = wrap(r.identity.rationale, innerW - 10);
   rationaleLines.forEach((line, i) => {
     const prefix = i === 0 ? `  ${pc.dim("proof")}       ` : `               `;
@@ -182,8 +181,8 @@ export function renderText(r: AuditResult): string {
       out.push("");
     }
   }
-  
-  wrap(r.summary, w - 4).forEach(line => out.push("  " + line));
+
+  wrap(r.summary, w - 4).forEach((line) => out.push("  " + line));
   out.push("");
 
   if (r.findings.length === 0) {
@@ -201,7 +200,7 @@ export function renderText(r: AuditResult): string {
   sorted.forEach((f: Finding, i) => {
     const lines: string[] = [];
     const headerText = `${pc.dim(`#${i + 1}`)} ${pc.cyan(f.category)} — ${pc.bold(f.claim)}`;
-    wrap(headerText, innerW).forEach(l => lines.push(l));
+    wrap(headerText, innerW).forEach((l) => lines.push(l));
 
     const whyLines = wrap(f.rationale, innerW - 6);
     whyLines.forEach((l, idx) => {
@@ -232,8 +231,8 @@ export function renderText(r: AuditResult): string {
   out.push(
     pc.dim(
       "  Prioritize HIGH-confidence findings. Edit or delete the cited items,\n" +
-      "  remove leaked emails from commit history (git filter-repo), and avoid\n" +
-      "  reusing the flagged handles or external links across platforms.",
+        "  remove leaked emails from commit history (git filter-repo), and avoid\n" +
+        "  reusing the flagged handles or external links across platforms.",
     ),
   );
 
