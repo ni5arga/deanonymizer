@@ -20,8 +20,8 @@ const MAX_WIDTH = 120;
 
 function getBoxWidth(): number {
   const cols = process.stdout.columns;
-  if (!cols || cols < 40) return DEFAULT_WIDTH;
-  return Math.min(cols - 4, MAX_WIDTH);
+  if (!cols) return DEFAULT_WIDTH;
+  return Math.max(10, Math.min(cols - 4, MAX_WIDTH));
 }
 
 function stripAnsi(s: string): string {
@@ -34,20 +34,32 @@ function stripAnsi(s: string): string {
 /** ANSI-aware word wrap. */
 function wrap(text: string, width: number): string[] {
   const lines: string[] = [];
-  const words = text.split(" ");
+  const words = text.trim().split(/\s+/);
   let current = "";
   let currentVisibleLen = 0;
 
   for (const word of words) {
     const wordVisibleLen = stripAnsi(word).length;
-    // +1 for the space
-    if (currentVisibleLen + wordVisibleLen + 1 > width) {
+
+    // Hard-wrap long unstyled tokens (e.g., URLs) to avoid overflowing the box.
+    if (stripAnsi(word) === word && wordVisibleLen > width) {
+      if (current) lines.push(current);
+      for (let i = 0; i < word.length; i += width) {
+        lines.push(word.slice(i, i + width));
+      }
+      current = "";
+      currentVisibleLen = 0;
+      continue;
+    }
+
+    const space = current ? 1 : 0;
+    if (currentVisibleLen + space + wordVisibleLen > width) {
       if (current) lines.push(current);
       current = word;
       currentVisibleLen = wordVisibleLen;
     } else {
       current = current ? current + " " + word : word;
-      currentVisibleLen += (current === word ? 0 : 1) + wordVisibleLen;
+      currentVisibleLen += space + wordVisibleLen;
     }
   }
   if (current) lines.push(current);
@@ -76,12 +88,13 @@ function banner(title: string, subtitles: string[]): string[] {
 /** Wrap content lines in a colored box with the severity badge in the top border. */
 function findingBox(
   f: Finding,
-  index: number,
+  _index: number,
   contentLines: string[],
 ): string[] {
   const color = RISK_COLOR[f.confidence];
   const badge = CONF_BADGE[f.confidence];
   const w = getBoxWidth();
+
 
   // Top border: ┌─ [badge] ─── ┐
   const dashes = Math.max(0, w - 10);
