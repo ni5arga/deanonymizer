@@ -124,9 +124,7 @@ describe("OpenAIClient.complete", () => {
         throw err;
       }
       return {
-        choices: [
-          { message: { content: "success" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "success" }, finish_reason: "stop" }],
       };
     });
     const result = await client.complete({ user: "go", maxTokens: 5 });

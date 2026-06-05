@@ -115,7 +115,6 @@ export class OpenAIClient implements LLMClient {
       );
     }
 
-
     const choice = resp.choices[0];
     const content = choice?.message?.content;
     if (!content) {
