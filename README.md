@@ -64,7 +64,7 @@ npm install
 
 ### LLM backend
 
-The analysis stage runs on either of two interchangeable backends, selected
+The analysis stage runs on any of three interchangeable backends, selected
 automatically from the environment (override with `--provider`):
 
 **Anthropic (native, default when only this key is set)**
@@ -94,12 +94,29 @@ export OPENAI_BASE_URL=http://localhost:11434/v1
 export OPENAI_MODEL=llama3
 ```
 
+**Claude Code CLI (no API key)** — routes the analysis through your existing
+[Claude Code](https://claude.com/claude-code) session by shelling out to
+`claude -p`, so no `ANTHROPIC_API_KEY` is needed. Select it explicitly:
+
+```bash
+npm run audit -- my_reddit_handle --provider claude-code
+# optional: pin the model or point at a non-default CLI binary
+export CLAUDE_CODE_MODEL=claude-sonnet-4-6
+export CLAUDE_CODE_BIN=/path/to/claude
+```
+
+Tradeoffs vs. the native Anthropic SDK path: no prompt caching, no `max_tokens`
+control, and slower per-call startup (CLI cold start), so it is opt-in rather
+than auto-detected. The JSON-repair fallback covers the lack of a
+`response_format: json_object` equivalent.
+
 Selection order: `--provider` flag → `LLM_PROVIDER` env → auto-detect
-(`OPENAI_*` / `--base-url` → openai; `ANTHROPIC_API_KEY` → anthropic). Existing
-Anthropic-only setups keep working unchanged. Native Anthropic prompt caching is
-preserved on the Anthropic path; the OpenAI path requests
-`response_format: json_object` where supported and still runs the JSON-repair
-fallback for endpoints that ignore it.
+(`OPENAI_*` / `--base-url` → openai; `ANTHROPIC_API_KEY` → anthropic).
+`claude-code` is never auto-detected — request it via `--provider claude-code`
+or `LLM_PROVIDER=claude-code`. Existing Anthropic-only setups keep working
+unchanged. Native Anthropic prompt caching is preserved on the Anthropic path;
+the OpenAI path requests `response_format: json_object` where supported and
+still runs the JSON-repair fallback for endpoints that ignore it.
 
 ## Usage
 
@@ -140,7 +157,7 @@ npm run audit -- my_reddit_handle --provider openai --model gpt-4o-mini
 | -n, --max <n> | 300 | Maximum items fetched per platform |
 | --max-chars <n> | 120000 | Maximum analysis transcript budget |
 | --concurrency <n> | all (≤8) | Number of chunk workers processed in parallel |
-| --provider <name> | auto-detect | LLM provider: `anthropic` or `openai` |
+| --provider <name> | auto-detect | LLM provider: `anthropic`, `openai`, or `claude-code` |
 | --base-url <url> | none | OpenAI-compatible base URL (Gemini/Ollama/Groq/…); implies `openai` |
 | --model <name> | provider default | Override the model name |
 | --json | false | Emit JSON instead of text report |
@@ -152,7 +169,7 @@ npm run audit -- my_reddit_handle --provider openai --model gpt-4o-mini
 
 - Increase -n to expand retrieval depth
 - Increase --max-chars to reduce context truncation
-- Pin the model (ANTHROPIC_MODEL / OPENAI_MODEL / --model) to control inference backend variance
+- Pin the model (ANTHROPIC_MODEL / OPENAI_MODEL / CLAUDE_CODE_MODEL / --model) to control inference backend variance
 - Store JSON outputs for temporal diff and regression analysis
 
 ## Build
