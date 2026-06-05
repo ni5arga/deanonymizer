@@ -119,4 +119,16 @@ describe("createLLMClient", () => {
       /neither OPENAI_API_KEY/,
     );
   });
+
+  it("builds a claude-code client without any API keys present", () => {
+    const client = createLLMClient({ provider: "claude-code" }, {});
+    assert.equal(client.label, "claude-code");
+  });
+
+  it("honors LLM_PROVIDER=claude-code", () => {
+    assert.equal(
+      resolveProvider({}, { LLM_PROVIDER: "claude-code" }),
+      "claude-code",
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import type { Item, Profile } from "../types.js";
+import { USER_AGENT, assembleProfile, decodeEntities } from "./common.js";
 
 /**
  * Hacker News (YC) ingestion via the Algolia HN Search API
@@ -21,16 +22,9 @@ interface Hit {
 }
 
 function decode(html: string): string {
-  return html
-    .replace(/<p>/g, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&#x2F;/g, "/")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&gt;/g, ">")
-    .replace(/&lt;/g, "<")
-    .replace(/&amp;/g, "&")
-    .trim();
+  return decodeEntities(
+    html.replace(/<p>/g, "\n\n").replace(/<[^>]+>/g, ""),
+  ).trim();
 }
 
 async function fetchTag(
@@ -48,7 +42,7 @@ async function fetchTag(
       url.searchParams.set("numericFilters", `created_at_i<${before}`);
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "deanonymizer/0.1 (privacy self-audit)" },
+      headers: { "User-Agent": USER_AGENT },
     });
     if (!res.ok) throw new Error(`HN Algolia ${tag} ${res.status}`);
     const json = (await res.json()) as { hits?: Hit[] };
@@ -99,14 +93,12 @@ export async function fetchHN(username: string, max: number): Promise<Profile> {
     });
   }
 
-  items.sort((a, b) => b.createdUtc - a.createdUtc);
-
-  return {
-    platform: "hn",
-    username: user,
-    profileUrl: `https://news.ycombinator.com/user?id=${encodeURIComponent(user)}`,
+  return assembleProfile(
+    {
+      platform: "hn",
+      username: user,
+      profileUrl: `https://news.ycombinator.com/user?id=${encodeURIComponent(user)}`,
+    },
     items,
-    firstUtc: items.length ? items[items.length - 1].createdUtc : undefined,
-    lastUtc: items.length ? items[0].createdUtc : undefined,
-  };
+  );
 }

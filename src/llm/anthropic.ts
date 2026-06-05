@@ -25,22 +25,30 @@ export class AnthropicClient implements LLMClient {
   }
 
   async complete(params: LLMCompleteParams): Promise<string> {
-    const resp = await this.client.messages.create({
-      model: this.model,
-      max_tokens: params.maxTokens,
-      ...(params.system
-        ? {
-            system: [
-              {
-                type: "text" as const,
-                text: params.system,
-                cache_control: { type: "ephemeral" as const },
-              },
-            ],
-          }
-        : {}),
-      messages: [{ role: "user", content: params.user }],
-    });
-    return textFromResponse(resp);
+    let resp: Anthropic.Messages.Message;
+    try {
+      resp = await this.client.messages.create({
+        model: this.model,
+        max_tokens: params.maxTokens,
+        ...(params.system
+          ? {
+              system: [
+                {
+                  type: "text" as const,
+                  text: params.system,
+                  cache_control: { type: "ephemeral" as const },
+                },
+              ],
+            }
+          : {}),
+        messages: [{ role: "user", content: params.user }],
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`${this.label} request failed: ${msg}`);
+    }
+    const text = textFromResponse(resp);
+    if (!text) throw new Error(`${this.label} returned no content`);
+    return text;
   }
 }

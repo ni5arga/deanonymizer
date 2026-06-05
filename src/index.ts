@@ -5,6 +5,8 @@ import { writeFile } from "node:fs/promises";
 import { CONSENT_BANNER, requireConsent } from "./consent.js";
 import { fetchReddit } from "./sources/reddit.js";
 import { fetchHN } from "./sources/hn.js";
+import { fetchGitHub } from "./sources/github.js";
+import { fetchStackOverflow } from "./sources/stackoverflow.js";
 import { analyze } from "./analyze.js";
 import { createLLMClient } from "./llm/index.js";
 import { renderJson, renderText } from "./report.js";
@@ -27,6 +29,11 @@ program
     "Reddit username to audit (also accepts u/name)",
   )
   .option("--hn <username>", "Also audit this Hacker News (YC) username")
+  .option("--github <username>", "Also audit this GitHub username")
+  .option(
+    "--so <id_or_url>",
+    "Also audit this Stack Overflow user (numeric user_id or profile URL)",
+  )
   .option(
     "--reddit <username>",
     "Reddit username (alternative to positional arg)",
@@ -44,6 +51,7 @@ program
   .option(
     "--provider <name>",
     "LLM provider: anthropic, openai, openrouter, gemini, ollama, groq, together, nvidia, mistral (default: auto-detect)",
+    "LLM provider: 'anthropic', 'openai', or 'claude-code' (default: auto-detect from env)",
   )
   .option(
     "--base-url <url>",
@@ -70,14 +78,19 @@ program
   .action(async (positional, opts) => {
     const redditUser = opts.reddit ?? positional;
     const hnUser = opts.hn;
+    const githubUser = opts.github;
+    const soUser = opts.so;
 
-    if (!redditUser && !hnUser) {
+    if (!redditUser && !hnUser && !githubUser && !soUser) {
       console.error(
-        pc.red("Provide a Reddit username and/or --hn <username>.\n") +
+        pc.red(
+          "Provide at least one of: positional Reddit handle, --hn, --github, --so.\n",
+        ) +
           "Examples:\n" +
           "  audit my_reddit_handle\n" +
           "  audit my_reddit_handle --hn my_hn_handle\n" +
-          "  audit --hn my_hn_handle",
+          "  audit --github my_gh_handle --so 1234567\n" +
+          "  audit my_reddit_handle --hn my_hn_handle --github my_gh_handle --so 1234567",
       );
       process.exit(1);
     }
@@ -87,6 +100,8 @@ program
     const subjectLabel = [
       redditUser && `reddit:${redditUser}`,
       hnUser && `hn:${hnUser}`,
+      githubUser && `github:${githubUser}`,
+      soUser && `stackoverflow:${soUser}`,
     ]
       .filter(Boolean)
       .join(" + ");
@@ -127,6 +142,24 @@ program
     if (hnUser) {
       process.stderr.write(pc.dim(`Fetching HN history for ${hnUser}… `));
       const p = await fetchHN(hnUser, max);
+      process.stderr.write(pc.dim(`${p.items.length} items\n`));
+      if (p.items.length) profiles.push(p);
+    }
+
+    if (githubUser) {
+      process.stderr.write(
+        pc.dim(`Fetching GitHub history for ${githubUser}… `),
+      );
+      const p = await fetchGitHub(githubUser, max);
+      process.stderr.write(pc.dim(`${p.items.length} items\n`));
+      if (p.items.length) profiles.push(p);
+    }
+
+    if (soUser) {
+      process.stderr.write(
+        pc.dim(`Fetching Stack Overflow history for ${soUser}… `),
+      );
+      const p = await fetchStackOverflow(soUser, max);
       process.stderr.write(pc.dim(`${p.items.length} items\n`));
       if (p.items.length) profiles.push(p);
     }

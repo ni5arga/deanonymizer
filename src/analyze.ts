@@ -1,3 +1,4 @@
+import { extractEmails, extractSocialHandles } from "./extract.js";
 import type { LLMClient } from "./llm/index.js";
 import type { AuditResult, Finding, Item, Profile } from "./types.js";
 
@@ -212,7 +213,7 @@ ${text.slice(0, 120000)}`;
   }
 }
 
-/** Estimate the rendered transcript size of one item (mirrors chunkItemsByChars). */
+/** Estimate the rendered transcript size of one item (used for chunking + budgeting). */
 function itemRenderSize(it: Item): number {
   const when = new Date(it.createdUtc * 1000).toISOString().slice(0, 10);
   const body = it.body.replace(/\s+/g, " ").slice(0, 800);
@@ -245,10 +246,7 @@ function chunkItemsByChars(items: Item[], chunkChars: number): Item[][] {
   let used = 0;
 
   for (const it of items) {
-    const when = new Date(it.createdUtc * 1000).toISOString().slice(0, 10);
-    const body = it.body.replace(/\s+/g, " ").slice(0, 800);
-    const line = `[${it.platform} ${it.kind} | ${it.context} | ${when}] ${body}\n(${it.permalink})`;
-    const size = line.length + 2;
+    const size = itemRenderSize(it);
 
     if (current.length > 0 && used + size > chunkChars) {
       chunks.push(current);
@@ -380,6 +378,7 @@ ${SCHEMA_HINT}`;
           json: true,
         }),
         primaryTimeout,
+        llm.requestTimeoutMs ?? 70000,
         `chunk ${currentChunk}/${totalChunks}`,
       );
     } catch {
@@ -416,6 +415,7 @@ ${SCHEMA_HINT}`;
           json: true,
         }),
         compressedTimeout,
+        llm.requestTimeoutMs ? Math.round(llm.requestTimeoutMs * 0.6) : 45000,
         `compressed chunk ${currentChunk}/${totalChunks}`,
       );
     } finally {
@@ -506,6 +506,31 @@ ${SCHEMA_HINT}`;
         }
       : undefined;
 
+  // Deterministic identifier extraction. Runs over every item body plus the
+  // model's evidence quotes, so anything regex-detectable lands in the
+  // report even if the LLM glossed over it.
+  const corpusParts: string[] = [];
+  for (const it of allItems) if (it.body) corpusParts.push(it.body);
+  for (const f of parsed.findings ?? []) {
+    for (const e of f.evidence ?? []) if (e?.quote) corpusParts.push(e.quote);
+  }
+  const corpus = corpusParts.join("\n\n");
+  const emailList = extractEmails(corpus);
+  const handleList = extractSocialHandles(corpus);
+  // The audited account itself isn't a "discovered" handle — drop it so the
+  // section highlights only cross-platform / external accounts.
+  const auditedHandles = new Set(
+    platformProfiles.map((p) => `${p.platform}:${p.username.toLowerCase()}`),
+  );
+  const filteredHandles = handleList.filter((h) => {
+    const aliasPlatform = h.platform === "hackernews" ? "hn" : h.platform; // map naming difference
+    return !auditedHandles.has(`${aliasPlatform}:${h.handle.toLowerCase()}`);
+  });
+  const directIdentifiers =
+    emailList.length > 0 || filteredHandles.length > 0
+      ? { emails: emailList, socialHandles: filteredHandles }
+      : undefined;
+
   opts.onProgress?.({
     phase: "done",
     percent: 100,
@@ -528,5 +553,6 @@ ${SCHEMA_HINT}`;
       publicProofUrls: [...knownProofUrls],
     },
     findings: parsed.findings ?? [],
+    directIdentifiers,
   };
 }

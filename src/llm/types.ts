@@ -10,6 +10,7 @@ export type Provider =
   | "together"
   | "nvidia"
   | "mistral";
+export type Provider = "anthropic" | "openai" | "claude-code";
 
 /** A single completion request, normalized across providers. */
 export interface LLMCompleteParams {
@@ -32,5 +33,10 @@ export interface LLMClient {
   readonly label: string;
   /** The resolved model name in use. */
   readonly model: string;
+  /**
+   * Optional per-request timeout hint in ms. Slow backends (e.g. spawning the
+   * Claude Code CLI) override the analyze.ts defaults via this field.
+   */
+  readonly requestTimeoutMs?: number;
   complete(params: LLMCompleteParams): Promise<string>;
 }

@@ -2,7 +2,7 @@
 
 deanonymizer is a command-line system for defensive OSINT exposure
 measurement. It estimates re-identification risk from public Reddit and Hacker
-News corpora by aggregating weak signals, scoring identity hypotheses, and
+News corpora (now supports web, GitHub & StackOverflow too!) by aggregating weak signals, scoring identity hypotheses, and
 emitting evidence-linked remediation guidance.
 
 ## Research basis
@@ -261,6 +261,68 @@ containing:
 - Optional strict validation: fail if no external proof URL exists beyond
   audited platform profile endpoints
 
+## Installation
+
+```bash
+npm install
+```
+
+### LLM backend
+
+The analysis stage runs on any of three interchangeable backends, selected
+automatically from the environment (override with `--provider`):
+
+**Anthropic (native, default when only this key is set)**
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+# default model is the fast claude-haiku-4-5
+# optional: export ANTHROPIC_MODEL=claude-sonnet-4-6  # slower, higher quality
+```
+
+**Any OpenAI-compatible endpoint** — OpenAI, Google Gemini, Ollama, Groq,
+Together, etc. Point `OPENAI_BASE_URL` at the provider's Chat Completions
+surface:
+
+```bash
+# OpenAI
+export OPENAI_API_KEY=sk-...
+export OPENAI_MODEL=gpt-4o-mini
+
+# Google Gemini (OpenAI-compatible endpoint)
+export OPENAI_API_KEY=...your-gemini-key...
+export OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export OPENAI_MODEL=gemini-2.0-flash
+
+# Ollama (local, no key required)
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export OPENAI_MODEL=llama3
+```
+
+**Claude Code CLI (no API key)** — routes the analysis through your existing
+[Claude Code](https://claude.com/claude-code) session by shelling out to
+`claude -p`, so no `ANTHROPIC_API_KEY` is needed. Select it explicitly:
+
+```bash
+npm run audit -- my_reddit_handle --provider claude-code
+# optional: pin the model or point at a non-default CLI binary
+export CLAUDE_CODE_MODEL=claude-sonnet-4-6
+export CLAUDE_CODE_BIN=/path/to/claude
+```
+
+Tradeoffs vs. the native Anthropic SDK path: no prompt caching, no `max_tokens`
+control, and slower per-call startup (CLI cold start), so it is opt-in rather
+than auto-detected. The JSON-repair fallback covers the lack of a
+`response_format: json_object` equivalent.
+
+Selection order: `--provider` flag → `LLM_PROVIDER` env → auto-detect
+(`OPENAI_*` / `--base-url` → openai; `ANTHROPIC_API_KEY` → anthropic).
+`claude-code` is never auto-detected — request it via `--provider claude-code`
+or `LLM_PROVIDER=claude-code`. Existing Anthropic-only setups keep working
+unchanged. Native Anthropic prompt caching is preserved on the Anthropic path;
+the OpenAI path requests `response_format: json_object` where supported and
+still runs the JSON-repair fallback for endpoints that ignore it.
+
 ## Usage
 
 ```bash
@@ -308,6 +370,15 @@ npm run audit -- my_reddit_handle --timeout 120000
 | --base-url \<url\> | none | OpenAI-compatible base URL (overrides provider preset) |
 | --model \<name\> | provider default | Override the model name |
 | --timeout \<ms\> | 70000 | LLM request timeout in milliseconds |
+| --hn <username> | none | Hacker News user to audit |
+| --github <username> | none | GitHub user to audit (uses public REST API; set `GITHUB_TOKEN` to raise rate limit) |
+| --so <id_or_url> | none | Stack Overflow user to audit (numeric user_id or profile URL) |
+| -n, --max <n> | 300 | Maximum items fetched per platform |
+| --max-chars <n> | 120000 | Maximum analysis transcript budget |
+| --concurrency <n> | all (≤8) | Number of chunk workers processed in parallel |
+| --provider <name> | auto-detect | LLM provider: `anthropic`, `openai`, or `claude-code` |
+| --base-url <url> | none | OpenAI-compatible base URL (Gemini/Ollama/Groq/…); implies `openai` |
+| --model <name> | provider default | Override the model name |
 | --json | false | Emit JSON instead of text report |
 | --require-external-proof | false | Fail if no proof URL exists beyond audited profile pages |
 | -o, --out \<file\> | stdout | Write output to file |
@@ -361,7 +432,7 @@ npm run audit -- my_handle --provider openrouter --model google/gemini-2.0-flash
 
 - Increase -n to expand retrieval depth
 - Increase --max-chars to reduce context truncation
-- Pin the model (ANTHROPIC_MODEL / OPENAI_MODEL / --model) to control inference backend variance
+- Pin the model (ANTHROPIC_MODEL / OPENAI_MODEL / CLAUDE_CODE_MODEL / --model) to control inference backend variance
 - Store JSON outputs for temporal diff and regression analysis
 
 ## Build
