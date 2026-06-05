@@ -117,10 +117,10 @@ describe("OpenAIClient.complete", () => {
     stub(client, async () => {
       callCount++;
       if (callCount === 1) {
-        const err = new Error("rate limit exceeded") as Error & {
+        const err = new Error("upstream error") as Error & {
           status: number;
         };
-        err.status = 429;
+        err.status = 502;
         throw err;
       }
       return {

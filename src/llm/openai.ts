@@ -6,7 +6,7 @@ import type {
 import type { LLMClient, LLMCompleteParams } from "./types.js";
 import pc from "picocolors";
 
-/** HTTP status codes worth retrying with a different model. */
+/** HTTP status codes worth retrying due to transient provider/network failures. */
 const RETRYABLE_CODES = new Set([429, 500, 502, 503, 504]);
 
 function isRetryableError(error: unknown): boolean {
@@ -33,9 +33,8 @@ function isRetryableError(error: unknown): boolean {
  * NVIDIA NIM, OpenRouter, Mistral, and any other Chat Completions-compatible
  * endpoint.
  *
- * When `fallbackModels` are configured, a retryable failure (504, 429, empty
- * choices, etc.) on the primary model triggers an automatic retry with the
- * next fallback before the error propagates.
+ * The client retries retryable failures (429/5xx, empty choices, etc.) up to a
+ * small fixed number of attempts before propagating the error.
  */
 export class OpenAIClient implements LLMClient {
   readonly label: string;
@@ -61,11 +60,13 @@ export class OpenAIClient implements LLMClient {
       } catch (error) {
         lastError = error;
         if (isRetryableError(error) && attempt < MAX_RETRIES) {
-          process.stderr.write(
-            pc.yellow(
-              `  ⚠ Request failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...\n`,
-            ),
-          );
+          if (process.stderr.isTTY) {
+            process.stderr.write(
+              pc.yellow(
+                `  ⚠ Request failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...\n`,
+              ),
+            );
+          }
           // Wait a bit before retrying 429s
           if ((error as { status?: number })?.status === 429) {
             await new Promise((r) => setTimeout(r, 2000));
@@ -104,13 +105,16 @@ export class OpenAIClient implements LLMClient {
 
     if (!resp.choices || resp.choices.length === 0) {
       const respStr = JSON.stringify(resp);
+      const details =
+        respStr.length > 1000 ? `${respStr.slice(0, 1000)}…` : respStr;
       throw Object.assign(
         new Error(
-          `${this.label} returned no choices or an error payload: ${respStr}`,
+          `${this.label} returned no choices or an error payload: ${details}`,
         ),
         { status: 502 },
       );
     }
+
 
     const choice = resp.choices[0];
     const content = choice?.message?.content;
