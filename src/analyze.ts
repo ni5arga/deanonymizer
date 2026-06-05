@@ -274,7 +274,7 @@ export async function analyze(
 ): Promise<AuditResult> {
   const llm = opts.llm;
   const primaryTimeout = llm.requestTimeoutMs ?? 180000;
-  const compressedTimeout = Math.max(Math.round(primaryTimeout * 0.65), 45000);
+  const compressedTimeout = Math.max(Math.round(primaryTimeout * (2 / 3)), 45000);
 
   const allItems = profiles.flatMap((p) => p.items);
   const username = profiles[0]?.username ?? "(unknown)";
