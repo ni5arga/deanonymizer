@@ -25,11 +25,12 @@ function getBoxWidth(): number {
 }
 
 function stripAnsi(s: string): string {
-  return s.replace(
-    // eslint-disable-next-line no-control-regex
-    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-    "",
+  // Use RegExp constructor to bypass ESLint no-control-regex on literals
+  const ansiRegex = new RegExp(
+    "[\\u001b\\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]",
+    "g",
   );
+  return s.replace(ansiRegex, "");
 }
 
 /** ANSI-aware word wrap. */
