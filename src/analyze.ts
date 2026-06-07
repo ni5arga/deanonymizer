@@ -138,7 +138,7 @@ function chunkSignalStats(items: Item[]): {
   let urlMentions = 0;
   let handleMentions = 0;
   const urlRe = /https?:\/\//g;
-  const handleRe = /(?:^|\s)@?[A-Za-z0-9_]{3,}(?=\s|$)/g;
+  const handleRe = /(?:^|\s)@[A-Za-z0-9_]{3,}(?=\s|$)/g;
 
   for (const it of items) {
     if (it.kind === "post") posts += 1;
