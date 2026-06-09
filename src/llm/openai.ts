@@ -59,23 +59,23 @@ export class OpenAIClient implements LLMClient {
         return await this.tryComplete(params);
       } catch (error) {
         lastError = error;
-        if (isRetryableError(error) && attempt < MAX_RETRIES) {
-          if (process.stderr.isTTY) {
-            process.stderr.write(
-              pc.yellow(
-                `  ⚠ Request failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...\n`,
-              ),
-            );
-          }
-          // Wait a bit before retrying 429s
-          if ((error as { status?: number })?.status === 429) {
-            await new Promise((r) => setTimeout(r, 2000));
-          }
-          continue;
+        if (!isRetryableError(error) || attempt === MAX_RETRIES) break;
+
+        if (process.stderr.isTTY) {
+          process.stderr.write(
+            pc.yellow(
+              `  ⚠ Request failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...\n`,
+            ),
+          );
         }
-        throw error;
+
+        // Wait a bit before retrying 429s
+        if ((error as { status?: number })?.status === 429) {
+          await new Promise((r) => setTimeout(r, 2000));
+        }
       }
     }
+
     throw lastError;
   }
 
