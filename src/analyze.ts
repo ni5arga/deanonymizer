@@ -275,6 +275,8 @@ export async function analyze(
   },
 ): Promise<AuditResult> {
   const llm = opts.llm;
+  const primaryTimeout = llm.requestTimeoutMs ?? 180000;
+  const compressedTimeout = Math.max(Math.round(primaryTimeout * (2 / 3)), 45000);
 
   const allItems = profiles.flatMap((p) => p.items);
   const username = profiles[0]?.username ?? "(unknown)";
@@ -309,9 +311,7 @@ export async function analyze(
     chunks.length,
   );
   const totalChunks = chunks.length;
-  // Default to running every chunk concurrently (capped to avoid API rate
-  // limits). Chunk analysis is independent, so serial rounds were the main
-  // source of wall-clock latency.
+
   const maxConcurrency = Math.max(
     1,
     Math.min(opts.chunkConcurrency ?? 8, totalChunks || 1),
@@ -375,7 +375,7 @@ ${SCHEMA_HINT}`;
           maxTokens: 2200,
           json: true,
         }),
-        llm.requestTimeoutMs ?? 70000,
+        primaryTimeout,
         `chunk ${currentChunk}/${totalChunks}`,
       );
     } catch {
@@ -411,7 +411,7 @@ ${SCHEMA_HINT}`;
           maxTokens: 1100,
           json: true,
         }),
-        llm.requestTimeoutMs ? Math.round(llm.requestTimeoutMs * 0.6) : 45000,
+        compressedTimeout,
         `compressed chunk ${currentChunk}/${totalChunks}`,
       );
     } finally {
@@ -489,7 +489,10 @@ ${SCHEMA_HINT}`;
     }
   }
 
-  for (const url of parsed.identity?.publicProofUrls ?? []) {
+  const allProofUrls = parsedChunks.flatMap(
+    (c) => c.identity?.publicProofUrls ?? [],
+  );
+  for (const url of allProofUrls) {
     if (typeof url === "string" && /^https?:\/\//i.test(url)) {
       knownProofUrls.add(url.trim());
     }
