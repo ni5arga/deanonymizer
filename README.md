@@ -114,6 +114,24 @@ export OPENAI_MODEL=llama3
 
 this is the "use whatever you've already got" path. switching providers is easy; pick based on cost, speed, or whichever model you trust. the Ollama variant is useful if you'd rather not send someone's data off your machine at all — it runs fully local, no key, slower but yours.
 
+**OrcaRouter (named provider)** — [OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible AI gateway that routes many providers behind one endpoint. it's a first-class provider here, not just another `--base-url`: it has its own key env var, its own default model, and its model list comes from OrcaRouter's live catalog.
+
+```bash
+export ORCAROUTER_API_KEY=sk-orca-...
+npm run audit -- my_reddit_handle --provider orcarouter
+# optional overrides
+export ORCAROUTER_MODEL=deepseek/deepseek-v4-pro   # or pass --model
+export ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1  # self-hosted / explicit
+```
+
+the model isn't free text: `--model` is validated against the catalog, and `--list-models` prints what your key can actually see:
+
+```bash
+npm run audit -- --provider orcarouter --list-models
+```
+
+discovery calls `GET https://api.orcarouter.ai/v1/models?capability=chat` with your key and keeps every `vendor/model` id exactly as served. if that endpoint is unreachable, the CLI says so and falls back to a small verified list (gpt-5.5, claude-opus-4.8, gemini-3.5-flash, deepseek-v4-pro, orcarouter/auto) instead of making you type an unverified name. model access is per-key, so a catalog entry your key can't use answers `403` and tells you to pick another. a `401` means the key is invalid or revoked — create a new one in the [console](https://www.orcarouter.ai/console) and update the env var; there's no refresh dance, the key is durable until revoked.
+
 **Claude Code CLI (no API key at all)** — this one routes the analysis through your existing [Claude Code](https://claude.com/claude-code) session by shelling out to `claude -p`. so if you're already logged into Claude Code, you don't need an `ANTHROPIC_API_KEY` floating around in your env. you have to ask for it explicitly:
 
 ```bash
@@ -127,7 +145,7 @@ the tradeoffs, stated plainly: no prompt caching, no `max_tokens` control, and s
 
 **how it decides, when you don't tell it:**
 
-`--provider` flag → `LLM_PROVIDER` env → auto-detect (`OPENAI_*` / `--base-url` present → openai; `ANTHROPIC_API_KEY` present → anthropic). `claude-code` is *never* auto-detected — you have to ask via `--provider claude-code` or `LLM_PROVIDER=claude-code`. if you've got an Anthropic-only setup from before, nothing changes, it all still works. native Anthropic prompt caching stays on for the Anthropic path; the OpenAI path requests `response_format: json_object` where the endpoint supports it and falls back to JSON-repair for the ones that politely ignore it.
+`--provider` flag → `LLM_PROVIDER` env → auto-detect (`OPENAI_*` / `--base-url` present → openai; `ANTHROPIC_API_KEY` present → anthropic; `ORCAROUTER_API_KEY` present → orcarouter). `claude-code` is *never* auto-detected — you have to ask via `--provider claude-code` or `LLM_PROVIDER=claude-code`. if you've got an Anthropic-only setup from before, nothing changes, it all still works. native Anthropic prompt caching stays on for the Anthropic path; the OpenAI path requests `response_format: json_object` where the endpoint supports it and falls back to JSON-repair for the ones that politely ignore it. the OrcaRouter path does the same JSON-mode request with its catalog-selected model. when several keys are set, the older providers keep their existing precedence — say `--provider orcarouter` to opt in.
 
 ## usage
 
@@ -168,6 +186,12 @@ npm run audit -- my_reddit_handle --base-url http://localhost:11434/v1 --model l
 
 # force a specific provider/model for one run
 npm run audit -- my_reddit_handle --provider openai --model gpt-4o-mini
+
+# route through OrcaRouter, choosing a model from its live catalog
+npm run audit -- my_reddit_handle --provider orcarouter --model deepseek/deepseek-v4-pro
+
+# see which OrcaRouter models this key can use
+npm run audit -- --provider orcarouter --list-models
 ```
 
 the all-four-platforms run is the one that tends to surprise people the most. reusing the same username everywhere is the easiest thread to pull on.
@@ -183,9 +207,10 @@ the all-four-platforms run is the one that tends to surprise people the most. re
 | -n, --max <n> | 300 | max items fetched per platform |
 | --max-chars <n> | 120000 | max analysis transcript budget |
 | --concurrency <n> | all (≤8) | number of chunk workers processed in parallel |
-| --provider <name> | auto-detect | LLM provider: `anthropic`, `openai`, or `claude-code` |
-| --base-url <url> | none | OpenAI-compatible base URL (Gemini/Ollama/Groq/…); implies `openai` |
-| --model <name> | provider default | override the model name |
+| --provider <name> | auto-detect | LLM provider: `anthropic`, `openai`, `orcarouter`, or `claude-code` |
+| --base-url <url> | none | OpenAI-compatible base URL (Gemini/Ollama/Groq/…); implies `openai`. With `--provider orcarouter`, sets the OrcaRouter inference base instead |
+| --model <name> | provider default | override the model name. OrcaRouter models must exist in its live catalog |
+| --list-models | false | print the live OrcaRouter chat catalog for this key and exit (requires `--provider orcarouter`) |
 | --json | false | emit JSON instead of the text report |
 | --require-external-proof | false | fail if no proof URL exists beyond audited profile pages |
 | -o, --out <file> | stdout | write output to a file |

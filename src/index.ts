@@ -8,11 +8,87 @@ import { fetchHN } from "./sources/hn.js";
 import { fetchGitHub } from "./sources/github.js";
 import { fetchStackOverflow } from "./sources/stackoverflow.js";
 import { analyze } from "./analyze.js";
-import { createLLMClient } from "./llm/index.js";
+import { createLLMClient, resolveProvider } from "./llm/index.js";
+import {
+  discoverChatCatalog,
+  ORCAROUTER_DEFAULT_BASE_URL,
+  ORCAROUTER_CONSOLE_URL,
+  resolveChatModel,
+} from "./llm/orcarouter-catalog.js";
+import {
+  looksLikeOrcaRouterKey,
+  resolveOrcaRouterBaseUrl,
+} from "./llm/orcarouter.js";
 import { renderJson, renderText } from "./report.js";
 import type { Profile } from "./types.js";
 
 const program = new Command();
+
+/** OrcaRouter inference origin from flags/env, validated before use. */
+function orcaBaseUrl(opts: { baseUrl?: string }): string {
+  return resolveOrcaRouterBaseUrl(
+    opts.baseUrl ??
+      process.env.ORCAROUTER_BASE_URL ??
+      ORCAROUTER_DEFAULT_BASE_URL,
+  );
+}
+
+function orcaApiKey(): string {
+  const key = process.env.ORCAROUTER_API_KEY?.trim();
+  if (!key) {
+    throw new Error(
+      "ORCAROUTER_API_KEY is not set. Create a key at " +
+        `${ORCAROUTER_CONSOLE_URL} and export ORCAROUTER_API_KEY=sk-orca-... then retry.`,
+    );
+  }
+  return key;
+}
+
+/** `--list-models`: print the live chat catalog, or the verified fallback. */
+async function printOrcaRouterModels(opts: {
+  provider?: string;
+  baseUrl?: string;
+}): Promise<void> {
+  const provider = resolveProvider({
+    provider: opts.provider,
+    baseUrl: opts.baseUrl,
+  });
+  if (provider !== "orcarouter") {
+    throw new Error(
+      "--list-models is only available for the OrcaRouter provider. Add --provider orcarouter.",
+    );
+  }
+
+  const catalog = await discoverChatCatalog({
+    baseUrl: orcaBaseUrl(opts),
+    apiKey: orcaApiKey(),
+  });
+
+  if (catalog.degraded) {
+    process.stderr.write(
+      pc.yellow(
+        `warning: live OrcaRouter model catalog unavailable (${catalog.degradedReason}).\n` +
+          `Using the verified fallback catalog (${catalog.models.length} models).\n`,
+      ),
+    );
+  }
+
+  const heading =
+    catalog.source === "live"
+      ? "OrcaRouter chat models (live catalog)"
+      : "OrcaRouter chat models (verified fallback)";
+  console.log(`${heading} — ${catalog.models.length} available:`);
+  for (const model of catalog.models) {
+    const ctx = model.contextLength
+      ? pc.dim(`  ${model.contextLength.toLocaleString("en-US")} ctx`)
+      : "";
+    console.log(`  ${model.id}${ctx}`);
+  }
+  const fallback = resolveChatModel(catalog).model.id;
+  console.log(
+    `\nSelect one with --model <id> or ORCAROUTER_MODEL=<id>. Default: ${fallback}`,
+  );
+}
 
 program
   .name("audit")
@@ -50,15 +126,19 @@ program
   )
   .option(
     "--provider <name>",
-    "LLM provider: 'anthropic', 'openai', or 'claude-code' (default: auto-detect from env)",
+    "LLM provider: 'anthropic', 'openai', 'orcarouter', or 'claude-code' (default: auto-detect from env)",
   )
   .option(
     "--base-url <url>",
-    "OpenAI-compatible base URL (e.g. Gemini, Ollama, Groq); implies --provider openai",
+    "OpenAI-compatible base URL (e.g. Gemini, Ollama, Groq); implies --provider openai. With --provider orcarouter it sets the OrcaRouter inference base.",
   )
   .option(
     "--model <name>",
-    "Override the model name (else ANTHROPIC_MODEL / OPENAI_MODEL / provider default)",
+    "Override the model name (else ANTHROPIC_MODEL / OPENAI_MODEL / ORCAROUTER_MODEL / provider default)",
+  )
+  .option(
+    "--list-models",
+    "List the live OrcaRouter chat models and exit (requires --provider orcarouter + ORCAROUTER_API_KEY)",
   )
   .option("--json", "Emit JSON instead of a human report")
   .option(
@@ -71,6 +151,11 @@ program
     "Skip the interactive consent prompt (asserts you own/are authorized for the target)",
   )
   .action(async (positional, opts) => {
+    if (opts.listModels) {
+      await printOrcaRouterModels(opts);
+      return;
+    }
+
     const redditUser = opts.reddit ?? positional;
     const hnUser = opts.hn;
     const githubUser = opts.github;
@@ -112,11 +197,50 @@ program
       : undefined;
 
     // Resolve the LLM backend up front so a misconfigured provider fails before
-    // we spend time fetching public history.
+    // we spend time fetching public history. For OrcaRouter the model is chosen
+    // from its live catalog rather than typed in free-form.
+    const provider = resolveProvider({
+      provider: opts.provider,
+      baseUrl: opts.baseUrl,
+    });
+    let modelOverride: string | undefined = opts.model;
+    if (provider === "orcarouter") {
+      const apiKey = orcaApiKey();
+      if (!looksLikeOrcaRouterKey(apiKey)) {
+        process.stderr.write(
+          pc.yellow(
+            "warning: ORCAROUTER_API_KEY does not start with sk-orca-; continuing anyway.\n",
+          ),
+        );
+      }
+      const catalog = await discoverChatCatalog({
+        baseUrl: orcaBaseUrl(opts),
+        apiKey,
+      });
+      if (catalog.degraded) {
+        process.stderr.write(
+          pc.yellow(
+            `warning: live OrcaRouter model catalog unavailable (${catalog.degradedReason}); ` +
+              `falling back to the verified list of ${catalog.models.length} models.\n`,
+          ),
+        );
+      }
+      const resolved = resolveChatModel(
+        catalog,
+        opts.model ?? process.env.ORCAROUTER_MODEL,
+      );
+      modelOverride = resolved.model.id;
+      process.stderr.write(
+        pc.dim(
+          `OrcaRouter catalog: ${catalog.source} (${catalog.models.length} chat models); using ${modelOverride}\n`,
+        ),
+      );
+    }
+
     const llm = createLLMClient({
       provider: opts.provider,
       baseUrl: opts.baseUrl,
-      model: opts.model,
+      model: modelOverride,
     });
     process.stderr.write(pc.dim(`Using ${llm.label} model ${llm.model}\n`));
 

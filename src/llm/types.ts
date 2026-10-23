@@ -1,6 +1,6 @@
 /** Provider-agnostic LLM abstraction used by the analysis stage. */
 
-export type Provider = "anthropic" | "openai" | "claude-code";
+export type Provider = "anthropic" | "openai" | "orcarouter" | "claude-code";
 
 /** A single completion request, normalized across providers. */
 export interface LLMCompleteParams {
