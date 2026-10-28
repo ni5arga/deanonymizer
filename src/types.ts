@@ -1,4 +1,4 @@
-export type Platform = "reddit" | "hn" | "github" | "stackoverflow";
+export type Platform = "reddit" | "hn" | "github" | "stackoverflow" | "x";
 
 /** A single piece of authored content, normalized across sources. */
 export interface Item {

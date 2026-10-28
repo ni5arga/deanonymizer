@@ -46,6 +46,7 @@ mental model first, bullets second. when you kick off an audit, here's the journ
 - Hacker News stuff comes from the [HN Algolia Search API](https://hn.algolia.com/api)
 - GitHub gives up profile fields + public events (commits, issues, PRs, review comments) via the [GitHub REST API](https://docs.github.com/en/rest). commit author name and email tucked inside `PushEvent` payloads get folded in inline — those are a juicy source. dropping a `GITHUB_TOKEN` in the env raises your rate limit.
 - Stack Overflow hands over answers, questions, comments, and profile fields via the [Stack Exchange API v2.3](https://api.stackexchange.com)
+- X (Twitter) gives up the profile (display name, location, bio, website) and up to the last 3,200 posts and replies via the [X API v2](https://docs.x.com/x-api). retweets are skipped, since they're someone else's words, and `t.co` short links are expanded to where they actually point. reading posts needs a paid X API plan: put the app's bearer token in `X_BEARER_TOKEN`. for history older than 3,200 posts, X's own archive download is the only way in.
 - and the interesting one: if a GitHub or Stack Overflow profile links out to a personal website, a shallow link-follower goes and reads it. it grabs the root page, then up to 5 same-origin sub-pages, prioritizing the ones that look identity-shaped — `/about`, `/cv`, `/resume`, `/contact`, `/bio`, `/me`, `/portfolio`, and so on. it preserves `mailto:` and `http(s)://` href values *before* stripping the HTML, so a contact email hiding behind a link survives the pass. this matters more than it sounds: people put their email in an `<a href>` constantly.
 
 **2. it normalizes the mess.**
@@ -147,6 +148,9 @@ npm run audit -- --github my_gh_handle
 # Stack Overflow only (accepts numeric user_id or profile URL)
 npm run audit -- --so 1234567
 
+# X only (needs X_BEARER_TOKEN; paid X API plan)
+npm run audit -- --x my_x_handle
+
 # all four platforms at once — cross-platform handle correlation is the
 # single strongest signal the analyzer can flag
 npm run audit -- my_reddit_handle --hn my_hn_handle --github my_gh_handle --so 1234567
@@ -180,6 +184,7 @@ the all-four-platforms run is the one that tends to surprise people the most. re
 | --hn <username> | none | Hacker News user to audit |
 | --github <username> | none | GitHub user to audit (uses public REST API; set `GITHUB_TOKEN` to raise rate limit) |
 | --so <id_or_url> | none | Stack Overflow user to audit (numeric user_id or profile URL) |
+| --x <username> | none | X (Twitter) user to audit (uses the X API v2; needs `X_BEARER_TOKEN`, paid plan) |
 | -n, --max <n> | 300 | max items fetched per platform |
 | --max-chars <n> | 120000 | max analysis transcript budget |
 | --concurrency <n> | all (≤8) | number of chunk workers processed in parallel |

@@ -17,6 +17,14 @@ function textFromResponse(resp: Anthropic.Messages.Message): string {
 export class AnthropicClient implements LLMClient {
   readonly label = "anthropic";
   readonly model: string;
+  /**
+   * Claude 5 models may think before answering when no thinking setting is
+   * sent, and that thinking counts against max_tokens and takes time. The
+   * analysis asks for 1-4K tokens of JSON, so give every call room to think
+   * first and enough time to finish.
+   */
+  readonly requestTimeoutMs = 300_000;
+  private static readonly MIN_MAX_TOKENS = 16_000;
   private readonly client: Anthropic;
 
   constructor(config: { apiKey: string; model: string }) {
@@ -29,7 +37,7 @@ export class AnthropicClient implements LLMClient {
     try {
       resp = await this.client.messages.create({
         model: this.model,
-        max_tokens: params.maxTokens,
+        max_tokens: Math.max(params.maxTokens, AnthropicClient.MIN_MAX_TOKENS),
         ...(params.system
           ? {
               system: [
@@ -48,7 +56,20 @@ export class AnthropicClient implements LLMClient {
       throw new Error(`${this.label} request failed: ${msg}`);
     }
     const text = textFromResponse(resp);
-    if (!text) throw new Error(`${this.label} returned no content`);
+    if (!text) {
+      const kinds = resp.content.map((b) => b.type).join(", ") || "none";
+      if (resp.stop_reason === "refusal") {
+        const details = (
+          resp as { stop_details?: { category?: string | null } | null }
+        ).stop_details;
+        throw new Error(
+          `${this.label} declined the request (stop_reason: refusal; category: ${details?.category ?? "none given"})`,
+        );
+      }
+      throw new Error(
+        `${this.label} returned no text (stop_reason: ${resp.stop_reason}; content blocks: ${kinds})`,
+      );
+    }
     return text;
   }
 }

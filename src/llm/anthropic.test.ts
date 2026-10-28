@@ -69,7 +69,7 @@ describe("AnthropicClient.complete", () => {
     const client = makeClient();
     stub(client, async () => ({ content: [] }));
     await assert.rejects(client.complete({ user: "go", maxTokens: 5 }), {
-      message: /anthropic returned no content/,
+      message: /anthropic returned no text/,
     });
   });
 });

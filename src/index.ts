@@ -7,6 +7,7 @@ import { fetchReddit } from "./sources/reddit.js";
 import { fetchHN } from "./sources/hn.js";
 import { fetchGitHub } from "./sources/github.js";
 import { fetchStackOverflow } from "./sources/stackoverflow.js";
+import { fetchX } from "./sources/x.js";
 import { analyze } from "./analyze.js";
 import { createLLMClient } from "./llm/index.js";
 import { renderJson, renderText } from "./report.js";
@@ -33,6 +34,10 @@ program
   .option(
     "--so <id_or_url>",
     "Also audit this Stack Overflow user (numeric user_id or profile URL)",
+  )
+  .option(
+    "--x <username>",
+    "Also audit this X (Twitter) username via the X API (needs X_BEARER_TOKEN)",
   )
   .option(
     "--reddit <username>",
@@ -75,16 +80,18 @@ program
     const hnUser = opts.hn;
     const githubUser = opts.github;
     const soUser = opts.so;
+    const xUser = opts.x;
 
-    if (!redditUser && !hnUser && !githubUser && !soUser) {
+    if (!redditUser && !hnUser && !githubUser && !soUser && !xUser) {
       console.error(
         pc.red(
-          "Provide at least one of: positional Reddit handle, --hn, --github, --so.\n",
+          "Provide at least one of: positional Reddit handle, --hn, --github, --so, --x.\n",
         ) +
           "Examples:\n" +
           "  audit my_reddit_handle\n" +
           "  audit my_reddit_handle --hn my_hn_handle\n" +
           "  audit --github my_gh_handle --so 1234567\n" +
+          "  audit --x my_x_handle\n" +
           "  audit my_reddit_handle --hn my_hn_handle --github my_gh_handle --so 1234567",
       );
       process.exit(1);
@@ -97,6 +104,7 @@ program
       hnUser && `hn:${hnUser}`,
       githubUser && `github:${githubUser}`,
       soUser && `stackoverflow:${soUser}`,
+      xUser && `x:${xUser}`,
     ]
       .filter(Boolean)
       .join(" + ");
@@ -152,6 +160,13 @@ program
         pc.dim(`Fetching Stack Overflow history for ${soUser}… `),
       );
       const p = await fetchStackOverflow(soUser, max);
+      process.stderr.write(pc.dim(`${p.items.length} items\n`));
+      if (p.items.length) profiles.push(p);
+    }
+
+    if (xUser) {
+      process.stderr.write(pc.dim(`Fetching X history for ${xUser}… `));
+      const p = await fetchX(xUser, max);
       process.stderr.write(pc.dim(`${p.items.length} items\n`));
       if (p.items.length) profiles.push(p);
     }
